@@ -1,0 +1,307 @@
+(* Question 1 - Unfolding *)
+
+(* This is the function unfold, take some time to compare it it fold.
+   If fold_left and fold_right take lists to generate a value, this
+   function takes a value that will generate a list. The relation
+   between folds and unfolds is the beginning of a wonderful tale in
+   computer science. But let's not get ahead of ourselves.
+
+   Unfold takes a function that from a seed value it generates a new
+   element of the list, and a the seed for the next element, another
+   function to stop the generation, and an initial seed.
+*)
+
+let rec unfold (f: 'seed -> ('a * 'seed)) (stop : 'b -> bool) (b : 'seed) : 'a list =
+  if stop b then []
+  else let x, b' = f b in
+       x :: (unfold f stop b')
+
+let nats max = unfold (fun b -> b, b + 1) (fun x -> x > max) 0
+
+(* Q1.1: Return the even numbers up-to max *)
+let evens max = unfold (fun b -> b, b + 2) (fun x -> x > max) 0
+let q1_1 = evens 4
+(*   #use "hw3.ml";;   *)
+
+(* Q1.2: Return the Fibonacci sequence up-to max *)
+let fib max = unfold (fun (prev, cur)-> (prev ,(cur, prev + cur))) (fun (prev, cur) -> prev > max) (1, 1)
+(*let q2_2 = fib 0
+let q2_2 = fib 1
+let q2_2 = fib 2
+let q2_2 = fib 3
+let q2_2 = fib 4
+let q2_2 = fib 5
+let q2_2 = fib 6
+let q2_2 = fib 7
+let q2_2 = fib 8
+let q2_2 = fib 9
+let q2_2 = fib 10
+let q2_2 = fib 11
+let q2_2 = fib 12
+let q2_2 = fib 13
+let q2_2 = fib 14
+*)
+
+(* Q1.3: Return the list of rows of the Pascal triangle that are shorter than max *)
+let compute_row b = 
+  let rec compute prev_row prev_num = match prev_row with
+  | [] -> [1]
+  | h::t -> (h + prev_num)::(compute t h)
+in compute b 0
+
+let pascal max = unfold (fun b -> b, (compute_row b)) (fun x -> List.exists (fun a -> a >= max)  x) [1]
+
+(*let q1_3 = pascal 0
+let q1_3 = pascal 1
+let q1_3 = pascal 2
+let q1_3 = pascal 3
+let q1_3 = pascal 4
+let q1_3 = pascal 5
+let q1_3 = pascal 6
+let q1_3 = pascal 7
+let q1_3 = pascal 8
+let q1_3 = pascal 9
+let q1_3 = pascal 10
+let q1_3 = pascal 11
+let q1_3 = pascal 12
+let q1_3 = pascal 13
+let q1_3 = pascal 14
+let q1_3 = pascal 15
+*)
+let rec zip (l1 : 'a list) (l2 : 'b list) :  ('a * 'b) list =
+match l1, l2 with
+| [], _ -> []
+| _, [] -> []
+| x::xs, y::ys -> (x, y):: zip xs ys
+
+(* (Extra credit) Optional: implement zip with a single call to unfold *)
+let zip' l1 l2 = unfold (fun (h1::t1,h2::t2) -> (h1,h2),(t1,t2)) (fun (l1,l2) -> l1 = [] || l2 = [] ) (l1,l2)
+
+(*l1 = [] or l2 = []*)
+let q1_4 = zip' [1;2;3;4;5] [6;7;8;9;9;2]
+
+(* Question 2 *)
+
+let ugly x =
+  let rec ackermann m n = match (m , n) with
+    | 0 , n -> n+1
+    | m , 0 -> ackermann (m-1) 1
+    | m , n -> ackermann (m-1) (ackermann m (n-1))
+  in
+  ackermann 3 x
+
+let memo_zero (f : 'a -> 'b) : 'a -> 'b = f
+
+(* Q2.1: Write a function that memoizes the last value called. *)
+
+
+let memo_one (f : 'a -> 'b) : ('a -> 'b) =
+  let sInput = ref None in
+  let sReturn = ref None in
+  (fun input -> if Some input = !sInput then 
+                  let k = !sReturn in match k with Some x -> x 
+                else  
+                  (sReturn := Some (f input);
+                  sInput := Some input;
+                  let k = !sReturn in match k  with Some x -> x)
+  )
+
+(* Example usage: 
+
+let ugly' = memo_one ugly
+
+let u1 = ugly' 11                (* this one calls ugly with 3 *)
+let u2 = ugly' 3                (* this one uses the stored value *)
+let u3 = ugly' 11                (* the stored value is for 3 so it calls ugly *)
+let u4 = ugly' 2                (* the stored value is for 1 so it calls ugly *)
+let u5 = ugly' 10               (* the stored value is for 2 so it calls ugly and takes a couple of seconds *)
+let u6 = ugly' 10               (* the one uses the stored value and returns immediately *)
+
+*)
+(* Q2.2: Write a function that memoizes the last value called. *)
+
+(* Helper get the first n elements from the list*)
+let rec desiredList list_ref n acc = match list_ref with
+| [] -> acc
+| h::t -> if n = 0 then acc else desiredList t (n - 1) (h::acc)
+
+let rec checkinList input list_ref = match list_ref with
+| [] -> None
+| (sI, sR)::t -> if sI = input then Some (sI, sR) else checkinList input t
+
+
+let memo_many (n : int) (f : 'a -> 'b) : 'a -> 'b = 
+  let sList = ref [] in
+  (fun input -> let isFound = checkinList input (desiredList !sList n []) in
+    match isFound with
+    | None -> let sReturn = (f input) in (sList:= (input, sReturn)::(!sList); sReturn)
+    | Some (sI, sR) -> sR
+  )
+
+
+(*
+let ugly' = memo_many 5 ugly
+
+let u1 = ugly' 11                (* this one calls ugly with 3 *)
+let u2 = ugly' 10               (* this one uses the stored value *)
+let u3 = ugly' 1                (* the stored value is for 3 so it calls ugly *)
+let u4 = ugly' 2                (* the stored value is for 1 so it calls ugly *)
+let u5 = ugly' 10               (* the stored value is for 2 so it calls ugly and takes a couple of seconds *)
+let u6 = ugly' 11               (* the one uses the stored value and returns immediately *)
+*)
+ (*Question 3: Doubly-linked circular lists  *)
+
+(* Circular doubly linked lists *)
+
+(* The type of a cell (a non-empty circular list) *)
+type 'a cell = { mutable p : 'a cell; data : 'a ; mutable n : 'a cell}
+
+(* The type of possibly empty circular lists *)
+type 'a circlist = 'a cell option
+
+(* An empty circular list *)
+let empty :'a circlist = None
+
+(* A singleton list that contains a single element *)
+let singl (x : 'a) : 'a circlist =
+  let rec pointer = {p = pointer ; data = x ; n = pointer} in
+  Some pointer
+
+(* Rotate a list to next element *)
+let next : 'a circlist -> 'a circlist = function
+  | None -> None
+  | Some cl -> Some (cl.n)
+
+(* Rotate a list to previous element *)
+let prev : 'a circlist -> 'a circlist = function
+  | None -> None
+  | Some cl -> Some (cl.p)
+
+(* Q3.1: Write a function that add a new element at the beginning of a list *)
+let cons (x : 'a)  (xs : 'a circlist) : 'a circlist = match xs with 
+  | None ->  singl x
+  | Some header -> let curr_cell = header in
+  let new_cell = { p = curr_cell.p ; data = x; n = curr_cell} in
+  (curr_cell.p.n <- new_cell; curr_cell.p <- new_cell; xs) 
+
+(* Q3.2: Write a function that computes the length of a list (Careful with the infinite loops)  *)
+let rec length (l : 'a circlist) : int = match l with 
+| None -> 0
+|Some cell ->
+  let rec length' header count = match header with
+  | None -> 0
+  | Some header ->  if  (header.n) == cell then count + 1
+                  else length' (next (Some header)) (count + 1)
+
+  in length' l 0 
+
+(* Q3.3: Write a function that produces an immutable list from a circular list *)
+let to_list (l : 'a circlist)  : 'a list = match l with 
+| None -> []
+|Some cell ->
+  let rec to_list' l' acc = match l' with 
+  | None -> []
+  | Some header -> if header.n == cell then (acc@[header.data]) else to_list' (next (Some header)) (acc@[header.data])
+  in to_list' l []
+
+(* Once you've written cons you can use this function to quickly populate your lists *)
+let rec from_list : 'a list -> 'a circlist = function
+  | [] -> empty
+  | x::xs -> cons x (from_list xs)
+
+(* Q3.4: Write a function that reverses all the directions of the list *)
+let rev (l : 'a circlist) : 'a circlist = match l with 
+| None -> None
+| Some firstcell -> 
+let rec rev' l' = match l' with
+  | None -> None
+  | Some cell -> if cell.n == firstcell then let temp = cell.p in (cell.p <- cell.n; cell.n <- temp; Some cell)
+                else
+                let temp = cell.p in (cell.p <- cell.n; cell.n <- temp; rev' (Some cell.p))
+
+in rev' (l)
+
+(* (Extra credit) OPTIONAL: Write the map function as applied to lists *)
+let map (f : 'a -> 'b) : 'a circlist -> ' b circlist = 
+function 
+| None -> None
+| Some start_header  -> let cell_length = length (Some start_header) in 
+  let rec map' n cells new_list =  
+  match cells with
+  | None -> new_list
+  | Some cell -> if n = 0 then new_list
+                  else if n = cell_length then  map' (n - 1) (next (Some cell)) (singl (f cell.data)) 
+                  else (  
+                      map' (n - 1) (next (Some cell)) (cons (f cell.data) new_list) )
+  in map'  cell_length (Some start_header) None
+
+(* Some possibly useful functions (Wink, wink!) *)
+
+(* A function that returns the Greatest Common Denominator of two numbers *)
+let rec gcd (u : int) (v : int) : int =
+  if v <> 0 then (gcd v (u mod v))
+  else (abs u)
+
+(* A function that returns the least common multiple of two numbers *)
+let lcm (m : int) (n : int) : int  =
+  match m, n with
+  | 0, _ | _, 0 -> 0
+  | m, n -> abs (m * n) / (gcd m n)
+
+
+
+(* (Extra credit) OPTIONAL A function that compares two lists ignoring the rotation *)
+let extract_data l = match l with 
+| None -> None
+| Some c -> Some c.data
+
+let bigger_length l1 l2 = 
+  if length l1 > length l2 then length l1
+  else length l2
+
+let rec compare_lists l1 l2 length = 
+  if length = 0 then true
+  else 
+    if extract_data l1 = extract_data l2 then compare_lists (next l1) (next l2) (length - 1)
+    else false
+
+let rec find_all l1 l2 acc length =
+  if length = 0 then acc
+  else if extract_data l1 = extract_data l2 then find_all (next l1) l2 (l1::acc) (length -1 )
+  else find_all (next l1) l2 acc (length - 1)
+
+let eq (l1 : 'a circlist) (l2 : 'a circlist) : bool =
+  if l1 == None && l2 == None then true 
+  else
+    let starting_points = find_all l1 l2 [] (bigger_length l1 l2) in List.exists (fun x -> compare_lists x l2 (bigger_length l1 l2)) starting_points
+
+(* Some examples *)
+
+let ex = cons 12 (cons 43 (cons 34 (singl 3)))
+let lex = to_list ex
+let optional_ex1 = map (fun x -> x+1) ex
+let loption_ex1 = to_list optional_ex1
+let rev_ex = rev ex
+let lrev_ex = to_list rev_ex
+
+
+let l1 = from_list [true; true ; false]
+let l3 = from_list [true; true ; false ; true; true ; false]
+
+let l4 = from_list ['a'; 'b'; 'a'; 'b']
+let l5 = from_list ['a'; 'b'; 'a'; 'b'; 'a'; 'b']
+
+let l6 = from_list ['a'; 'a']
+let l7 = from_list ['a'; 'a'; 'a']
+
+let l8 = from_list [1;2;3]
+let l9 = from_list [1 ;2;3;1;2;3;4]  (* eq l8 l9 = true *)
+
+let l10 = from_list [1 ; 2 ; 3]
+let l11 = from_list [3 ; 2 ; 1]  (* eq l10 l11 = false *)
+
+let al8 = to_list l8
+let eq1 = eq l10 l11
+let eq1 = eq l9 l8
+let eq1 = eq l6 l7 
+let eq1 = eq l4 l5 

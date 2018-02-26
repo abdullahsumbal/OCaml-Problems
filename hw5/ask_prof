@@ -1,0 +1,65 @@
+RemoveLetMatch
+
+let e5 = let open Exp in Let (Match (Pair (Int 5, Int 7), "x", "y"), Let (Val (Int 2, "z"), plus (Var "x") (plus (Var "y") (Var "z"))))
+
+Ans : E.Let (E.Val (E.Pair (E.Int 5, E.Int 7), "u"),
+		 E.Let (E.Val (E.Int 2, "z"),
+		  E.Primop (E.Plus,
+		   [E.Int 5;
+		    E.Primop (E.Plus, [E.Snd (E.Pair (E.Int 5, E.Int 7)); E.Var "z"])])))
+
+
+let e6 = let open Exp in Let (Match (Pair (Int 5, Int 7), "x", "y"), Let (Val (Int 2, "z"), plus (Var "y") (Var "z")))
+
+Ans: E.Let (E.Val (E.Pair (E.Int 5, E.Int 7), "u"),
+		 E.Let (E.Val (E.Int 2, "z"),
+		  E.Primop (E.Plus, [E.Snd (E.Pair (E.Int 5, E.Int 7)); E.Var "z"])))
+
+
+let e7 = let open Exp in Let (Match (Pair (Int 5, Int 7), "x", "y"), Let (Val (Int 2, "z"), plus (Var "x") (Var "y")))
+
+Ans: E.Let (E.Val (E.Pair (E.Int 5, E.Int 7), "u"),
+		 E.Let (E.Val (E.Int 2, "z"),
+		  E.Primop (E.Plus, [E.Int 5; E.Snd (E.Pair (E.Int 5, E.Int 7))])))
+
+let e8 = let open E in Let (Val (Int 3, "z"), Let (Val (Int 7, "x"), Let (Val (Var "x", "y"), Var "z")))
+
+Ans: E.Let (E.Val (E.Int 3, "z"),
+ 		E.Let (E.Val (E.Int 7, "x"), E.Let (E.Val (E.Var "x", "y"), E.Var "z")))
+
+
+DeadCode
+
+let e5 = let open Exp in Let (Match (Pair (Int 5, Int 7), "x", "y"), Let (Val (Int 2, "z"), plus (Var "x") (plus (Var "y") (Var "z"))))
+
+Ans : E.Let (E.Match (E.Pair (E.Int 5, E.Int 7), "x", "y"),
+		 E.Let (E.Val (E.Int 2, "z"),
+		  E.Primop (E.Plus, [E.Var "x"; E.Primop (E.Plus, [E.Var "y"; E.Var "z"])])))
+
+
+let e6 = let open Exp in Let (Match (Pair (Int 5, Int 7), "x", "y"), Let (Val (Int 2, "z"), plus (Var "y") (Var "z")))
+
+Ans: E.Let (E.Match (E.Pair (E.Int 5, E.Int 7), "x", "y"),
+ 		E.Let (E.Val (E.Int 2, "z"), E.Primop (E.Plus, [E.Var "y"; E.Var "z"])))
+
+
+let e7 = let open Exp in Let (Match (Pair (Int 5, Int 7), "x", "y"), Let (Val (Int 2, "z"), plus (Var "x") (Var "y")))
+
+Ans: E.Let (E.Match (E.Pair (E.Int 5, E.Int 7), "x", "y"),
+ 		E.Primop (E.Plus, [E.Var "x"; E.Var "y"]))
+
+let e8 = let open E in Let (Val (Int 3, "z"), Let (Val (Int 7, "x"), Let (Val (Var "x", "y"), Var "z")))
+
+Ans: E.Let (E.Val (E.Int 3, "z"),
+ 		E.exp = E.Let (E.Val (E.Int 3, "z"), E.Var "z")
+
+Together RemoveLetMatch and DeadCode
+
+let e5 = let open Exp in Let (Match (Pair (Int 5, Int 7), "x", "y"), Let (Val (Int 2, "z"), plus (Var "x") (plus (Var "y") (Var "z"))))
+
+Ans: E.Let (E.Val (E.Int 2, "z"),
+ E.Primop (E.Plus, [E.Int 5; E.Primop (E.Plus, [E.Int 7; E.Var "z"])]))
+
+let e6 = let open Exp in Let (Match (Pair (Int 5, Int 7), "x", "y"), Let (Val (Int 2, "z"), plus (Var "y") (Var "z")))
+
+	E.Let (E.Val (E.Int 2, "z"), E.Primop (E.Plus, [E.Int 7; E.Var "z"]))
